@@ -27,24 +27,10 @@
 
 // Opcode byte
 int opcode = 0;
-// Checksum byte
-int chksum = 0;
 // Message bytes
 char data[128];
-// The length of the message data
-int n = 0;
-// General variable for storing IDs
-int id = 0;
-// LocoNet ID
-int lnid = 0;
-// signal ID
-int sid = 0;
-// LocoNet message to send (we are not going to send anything longer than 4 bytes)
-char msg[4] = { 0, 0, 0, 0 };
-// General purpose variable for iterations
-int i = 0;
-// Switch states for setting the signal aspect
-int state1 = 0, state2 = 0;
+// Checksum byte
+int chksum = 0;
 
 // Indexing: block ID, i-th signal => signal head ID
 const int signals[NUM_OF_BLOCKS][SIGNALS_PER_BLOCK] = {
@@ -60,7 +46,7 @@ const int signals[NUM_OF_BLOCKS][SIGNALS_PER_BLOCK] = {
 
 int compute_checksum(char msg[], int len) {
 	chksum = 0;
-	for (i = 0; i < len; i++)
+	for (int i = 0; i < len; i++)
 		chksum = chksum ^ (msg[i] ^ 0xFF);
 	return chksum;
 }
@@ -73,7 +59,9 @@ int compute_checksum(char msg[], int len) {
  */
 void set_switch_state(int id, int state) {
 	// IDs on LocoNet are 0-based, but people work with 1-based numbers
-	lnid = id - 1;
+	int lnid = id - 1;
+	// LocoNet message to send (we are not going to send anything longer than 4 bytes)
+	char msg[4];
 
 	msg[0] = 0xB0;
 	msg[1] = lnid & 0xFF;
@@ -97,7 +85,10 @@ void set_switch_state(int id, int state) {
  * @param aspect The aspect to set (SIGNAL_GREEN | SIGNAL_RED | SIGNAL_YELLOW | SIGNAL_FLASHING_YELLOW)
  */
 void set_aspect(int head_id, int aspect) {
-	sid = 257 + ((head_id - 1) * NUM_ASPECTS / 2);
+	// signal ID
+	int sid = 257 + ((head_id - 1) * NUM_ASPECTS / 2);
+	// Switch states for setting the signal aspect
+	int state1 = 0, state2 = 0;
 	switch (aspect) {
 		case SIGNAL_GREEN:
 			state1 = SWITCH_CLOSED;
@@ -141,7 +132,7 @@ void on_sensor_change(int id, int state) {
 	if ((id < 0) || (id >= NUM_OF_BLOCKS))
 		return;
 
-	for (i = 0; i < SIGNALS_PER_BLOCK; i++) {
+	for (int i = 0; i < SIGNALS_PER_BLOCK; i++) {
 		// negative number means do not do anything
 		if (signals[id][i] >= 0) {
 			if (state == SENSOR_LO)
@@ -167,7 +158,7 @@ void decode_message() {
 	}
 	else if (opcode == 0xB2) {
 		// sensor state
-		id = ((((data[1] & 0xF) << 8) | data[0]) << 1) | ((data[1] >> 5) & 0x1);
+		int id = ((((data[1] & 0xF) << 8) | data[0]) << 1) | ((data[1] >> 5) & 0x1);
 		if (((data[1] >> 4) & 0x1) == 0x1)
 			on_sensor_change(id, SENSOR_HI);
 		else
@@ -185,6 +176,7 @@ void decode_message() {
  */
 void read_message() {
 	opcode = Serial.read();
+	int n = 0;                      // The length of the message data
 	switch (opcode >> 5) {
 		case 0x4: n = 0; break;
 		case 0x5: n = 2; break;
