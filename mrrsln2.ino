@@ -205,5 +205,4 @@ void loop() {
 		read_message();
 		decode_message();
 	}
-	delay(100);
 }
